@@ -5,7 +5,7 @@
  *  - ALPHA Prerendering/prefetching polyfill (pre-caching) for all browsers
  *    even if your browser doesn't support either.
  *
- * by Samy Kamkar, http://samy.pl/jiagra
+ * by Samy Kamkar, http://samy.pl/
  * 06/15/2011
  *
  * Learn more about Chrome prerendering:
@@ -67,14 +67,15 @@
 
 							// Modify page all at once
 							iframe.style.zIndex = "1337";
-							w.document.body.style.height = "100%";
+							w.document.body.style.height    = "100%";
 							w.document.body.style.maxHeight = "100%";
-							w.document.body.style.overflow = "hidden";
-							w.document.body.style.padding = "0";
-							w.document.body.style.margin = "0";
-							w.document.body.style.border = "0";
-							iframe.style.height = height + 'px';
-							iframe.style.width  = '100%';
+							w.document.body.style.overflow  = "hidden";
+							w.document.body.style.padding   = "0";
+							w.document.body.style.margin    = "0";
+							w.document.body.style.border    = "0";
+							iframe.style.height     = height + 'px';
+							iframe.style.border     = "0";
+							iframe.style.width      = '100%';
 							iframe.style.visibility = 'visible';
 							iframe.contentWindow.focus();
 							w.onresize = arguments.callee;
