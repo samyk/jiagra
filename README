@@ -1,0 +1,26 @@
+jiagra: Javascript/Website Performance Enhancement
+
+by Samy Kamkar, code@samy.pl
+06/15/2011, http://samy.pl/jiagra
+
+jiagra is a stand-alone javascript API for automatic performance
+enhancement. Currently, it contains a pseudo-polyfill for
+pre-rendering/pre-fetching, which currently is only supported in
+a handful of bleeding-edge browsers.
+
+This allows pages to be pre-cached by the browser and ready to load
+as soon as the user clicks.
+
+INSTALLATION:
+Simply add the script to your page like so:
+<script src="jiagra.js"></script>
+
+That's it!
+
+
+Read more about Chrome Prerendering:
+http://code.google.com/chrome/whitepapers/prerender.html
+
+Read more about Firefox Prefetching:
+https://developer.mozilla.org/en/Link_prefetching_FAQ
+
