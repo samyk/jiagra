@@ -2,10 +2,17 @@
  * jiagra 0.01
  *
  * Currently features:
- *   ALPHA Prerendering/prefetching polyfill (pre-caching) for all browsers
+ *  - ALPHA Prerendering/prefetching polyfill (pre-caching) for all browsers
+ *    even if your browser doesn't support either.
  *
- * by Samy Kamkar, http://samy.pl
+ * by Samy Kamkar, http://samy.pl/jiagra
  * 06/15/2011
+ *
+ * Learn more about Chrome prerendering:
+ *  http://code.google.com/chrome/whitepapers/prerender.html
+ *
+ * Learn more about Firefox prefetching:
+ *  https://developer.mozilla.org/en/Link_prefetching_FAQ
  *
  * TODO:
  *  an iframe can break out, we could prevent this same-domain with ajax get + html parser + caching, can support single-file pre-caching for cross-domain with Image(), but what about a cross-domain site (without proxy)?
@@ -14,7 +21,7 @@
  *  allow replacing links with the iframe so we don't ever have to redirect
  *  support <meta> prefetching
  *
- *  Usage may change any time.
+ *  Usage (or lack there of) may change any time.
  */
 
 (function(w)
@@ -52,13 +59,24 @@
 					a[i].onclick = (function(href, oldOnclick) {
 						return function() {
 							if (oldOnclick) oldOnclick();
+
 							var iframe = w.document.getElementById(href);
 							var height = w.document.documentElement.clientHeight;
 							height -= pageY(iframe) + scrollBuffer;
 							height = (height < 0) ? 0 : height;
+
+							// Modify page all at once
+							iframe.style.zIndex = "1337";
+							w.document.body.style.height = "100%";
+							w.document.body.style.maxHeight = "100%";
+							w.document.body.style.overflow = "hidden";
+							w.document.body.style.padding = "0";
+							w.document.body.style.margin = "0";
+							w.document.body.style.border = "0";
 							iframe.style.height = height + 'px';
 							iframe.style.width  = '100%';
 							iframe.style.visibility = 'visible';
+							iframe.contentWindow.focus();
 							w.onresize = arguments.callee;
 							return false;
 						};
@@ -105,10 +123,8 @@
 		{
 			var link = w.document.getElementsByTagName('link');
 			for (; i < link.length; i++)
-{
 				if (link[i]['rel'] && link[i]['rel'].match(/\b(?:pre(?:render|fetch)|next)\b/))
 					return prerender(w, link[i]['href'], i);
-}
 		};
 
 		// Find all pre-renders and do it!
