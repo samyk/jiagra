@@ -36,7 +36,9 @@
 	var replaceLinks = 1;
 
 	var scrollBuffer = 20;
-	var a = w.document.getElementsByTagName('a');
+
+	var d = w.document;
+	var a = d.getElementsByTagName('a');
 
 	// We don't want to slow down the page, so
 	// only do this once the page has been loaded.
@@ -60,19 +62,19 @@
 						return function() {
 							if (oldOnclick) oldOnclick();
 
-							var iframe = w.document.getElementById(href);
-							var height = w.document.documentElement.clientHeight;
+							var iframe = d.getElementById(href);
+							var height = d.documentElement.clientHeight;
 							height -= pageY(iframe) + scrollBuffer;
 							height = (height < 0) ? 0 : height;
 
 							// Modify page all at once
 							iframe.style.zIndex = "1337";
-							w.document.body.style.height    = "100%";
-							w.document.body.style.maxHeight = "100%";
-							w.document.body.style.overflow  = "hidden";
-							w.document.body.style.padding   = "0";
-							w.document.body.style.margin    = "0";
-							w.document.body.style.border    = "0";
+							d.body.style.height    = "100%";
+							d.body.style.maxHeight = "100%";
+							d.body.style.overflow  = "hidden";
+							d.body.style.padding   = "0";
+							d.body.style.margin    = "0";
+							d.body.style.border    = "0";
 							iframe.style.height     = height + 'px';
 							iframe.style.border     = "0";
 							iframe.style.width      = '100%';
@@ -100,7 +102,7 @@
 
 			// We're not really rendering, just loading the page in
 			// a hidden iframe in order to cache all objects on the page.
-			var iframe = w.document.createElement(useIframe ? 'iframe' : 'img');
+			var iframe = d.createElement(useIframe ? 'iframe' : 'img');
 			iframe.style.visibility = 'hidden';
 			iframe.style.position   = 'absolute';
 			iframe.onload = iframe.onerror = function()
@@ -113,16 +115,13 @@
 			iframe.src = href;
 			iframe.id  = href;
 
-			// See: http://paulirish.com/2011/surefire-dom-element-insertion/
-			// It could happen.
-			var ref = w.document.getElementsByTagName('base')[0] ||
-				w.document.getElementsByTagName('script')[0];
-			w.document.body.insertBefore(iframe, w.document.body.firstChild);	
+			// append iframe to DOM
+			d.body.insertBefore(iframe, d.body.firstChild);	
 		};
 
 		var findprerender = function(w, i)
 		{
-			var link = w.document.getElementsByTagName('link');
+			var link = d.getElementsByTagName('link');
 			for (; i < link.length; i++)
 				if (link[i]['rel'] && link[i]['rel'].match(/\b(?:pre(?:render|fetch)|next)\b/))
 					return prerender(w, link[i]['href'], i);
