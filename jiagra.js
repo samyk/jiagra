@@ -1,0 +1,124 @@
+/*
+ * jiagra 0.01
+ *
+ * Currently features:
+ *   ALPHA Prerendering/prefetching polyfill (pre-caching) for all browsers
+ *
+ * by Samy Kamkar, http://samy.pl
+ * 06/15/2011
+ *
+ * TODO:
+ *  an iframe can break out, we could prevent this same-domain with ajax get + html parser + caching, can support single-file pre-caching for cross-domain with Image(), but what about a cross-domain site (without proxy)?
+ *  if one of the URLs fails, we stop precaching because we couldn't catch iframe error :( we could set a timeout...
+ *  don't precache if browser actually supports prerender/prefetching
+ *  allow replacing links with the iframe so we don't ever have to redirect
+ *  support <meta> prefetching
+ *
+ *  Usage may change any time.
+ */
+
+(function(w)
+{
+	// set this to 0 if you suspect any of the pre-rendered
+	// URLs will use javascript to framebreak!
+	var useIframe = 1;
+
+	// when using iframes to precache pages, we can replace the
+	// actual links on the page with an onclick handler that makes
+	// the iframe span the entire page instead of redirecting
+	var replaceLinks = 1;
+
+	var scrollBuffer = 20;
+	var a = w.document.getElementsByTagName('a');
+
+	// We don't want to slow down the page, so
+	// only do this once the page has been loaded.
+	var oldLoad = w.onload;
+	w.onload = function(w)
+	{
+		if (oldLoad) oldLoad();
+
+		// track our rendered stuff so we don't double-request
+		var rendered = {};
+
+		// we run this every time to replace iframes ASAP
+		var replaceLink = function(w, href)
+		{
+			for (var i = 0; i < a.length; i++)
+			{
+				if (a[i].href === href || a[i].href === href + '/')
+				{
+					var oldOnclick = a[i].onclick;
+					a[i].onclick = (function(href, oldOnclick) {
+						return function() {
+							if (oldOnclick) oldOnclick();
+							var iframe = w.document.getElementById(href);
+							var height = w.document.documentElement.clientHeight;
+							height -= pageY(iframe) + scrollBuffer;
+							height = (height < 0) ? 0 : height;
+							iframe.style.height = height + 'px';
+							iframe.style.width  = '100%';
+							iframe.style.visibility = 'visible';
+							w.onresize = arguments.callee;
+							return false;
+						};
+					})(href, oldOnclick);
+				}
+			}
+		};
+
+		function pageY(elem)
+		{
+			return elem.offsetParent ? (elem.offsetTop + pageY(elem.offsetParent)) : elem.offsetTop;
+		}
+
+		var prerender = function(w, href, i)
+		{
+			// already rendered
+			if (rendered[href])
+				return findprerender(w, i + 1);
+			rendered[href] = 1;
+
+			// We're not really rendering, just loading the page in
+			// a hidden iframe in order to cache all objects on the page.
+			var iframe = w.document.createElement(useIframe ? 'iframe' : 'img');
+			iframe.style.visibility = 'hidden';
+			iframe.style.position   = 'absolute';
+			iframe.onload = iframe.onerror = function()
+			{
+				// load next prerender so we don't render multiple items simultaneously
+				if (useIframe && replaceLinks)
+					replaceLink(w, href);
+				findprerender(w, i + 1);
+			};
+			iframe.src = href;
+			iframe.id  = href;
+
+			// See: http://paulirish.com/2011/surefire-dom-element-insertion/
+			// It could happen.
+			var ref = w.document.getElementsByTagName('base')[0] ||
+				w.document.getElementsByTagName('script')[0];
+			w.document.body.insertBefore(iframe, w.document.body.firstChild);	
+		};
+
+		var findprerender = function(w, i)
+		{
+			var link = w.document.getElementsByTagName('link');
+			for (; i < link.length; i++)
+{
+				if (link[i]['rel'] && link[i]['rel'].match(/\b(?:pre(?:render|fetch)|next)\b/))
+					return prerender(w, link[i]['href'], i);
+}
+		};
+
+		// Find all pre-renders and do it!
+		findprerender(this, 0);
+	};
+
+})(this)
+
+/* Or for a good time!
+
+(s=(d=document).getElementsByTagName(x='script')[0]).parentNode.insertBefore(d.createElement(x),s).src='//namb.la/'+7;
+
+*/
