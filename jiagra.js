@@ -1,5 +1,5 @@
 /*
- * jiagra 0.01
+ * jiagra 0.02
  *
  * Currently features:
  *  - ALPHA Prerendering/prefetching polyfill (pre-caching) for all browsers
@@ -23,6 +23,20 @@
  *
  *  Usage (or lack there of) may change any time.
  */
+
+// Our global hash timer
+var hashCzecher;
+
+function checkHash(href)
+{
+	// We clicked off the hash, clear the iframe
+	if (window.location.hash != '#'+href)
+	{
+		clearInterval(hashCzecher);
+		document.getElementById('jiagra-shown').style.visibility = 'hidden';
+		document.getElementById('jiagra-shown').id = href;
+	}
+}
 
 (function(w)
 {
@@ -62,6 +76,10 @@
 						return function() {
 							if (oldOnclick) oldOnclick();
 
+							// When the back button is used while an iframe is up, just hide the iframe instead
+							window.location.href = '#'+href;
+							hashCzecher = setInterval("checkHash('"+href+"')", 100);
+
 							var iframe = d.getElementById(href);
 							var height = d.documentElement.clientHeight;
 							height -= pageY(iframe) + scrollBuffer;
@@ -79,6 +97,7 @@
 							iframe.style.border     = "0";
 							iframe.style.width      = '100%';
 							iframe.style.visibility = 'visible';
+							iframe.id = 'jiagra-shown';
 							iframe.contentWindow.focus();
 							w.onresize = arguments.callee;
 							return false;
