@@ -125,6 +125,7 @@
 							d.body.style.padding   = "0";
 							d.body.style.margin    = "0";
 							d.body.style.border    = "0";
+							visibleFrame.style.backgroundColor = "#FFFFFF";
 							visibleFrame.style.height     = height + 'px';
 							visibleFrame.style.border     = "0";
 							visibleFrame.style.width      = '100%';
