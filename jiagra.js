@@ -24,20 +24,6 @@
  *  Usage (or lack there of) may change any time.
  */
 
-// Our global hash timer
-var hashCzecher;
-
-function checkHash(href)
-{
-	// We clicked off the hash, clear the iframe
-	if (window.location.hash != '#'+href)
-	{
-		clearInterval(hashCzecher);
-		document.getElementById('jiagra-shown').style.visibility = 'hidden';
-		document.getElementById('jiagra-shown').id = href;
-	}
-}
-
 (function(w)
 {
 	// set this to 0 if you suspect any of the pre-rendered
@@ -50,16 +36,58 @@ function checkHash(href)
 	var replaceLinks = 1;
 
 	var scrollBuffer = 20;
+	var visibleFrame;
 
 	var d = w.document;
 	var a = d.getElementsByTagName('a');
 
+	var origDocSettings;
+
+	// Checks for a change in w.location.hash, and if so returns us to the original page
+	var checkHash = function(href)
+	{
+		// We clicked off the hash, clear the iframe and set the body back
+		if (w.location.hash !== '#' + href)
+		{
+			// Reset our page back to how it was before the iframe was displayed
+			if (origDocSettings)
+			{
+				d.body.style.height    = origDocSettings['height'];
+				d.body.style.maxHeight = origDocSettings['maxHeight'];
+				d.body.style.overflow  = origDocSettings['overflow'];
+				d.body.style.padding   = origDocSettings['padding'];
+				d.body.style.margin    = origDocSettings['margin'];
+				d.body.style.border    = origDocSettings['border'];
+			}
+
+			// Make the iframe invsible and delete the height/width so it doesn't give the page unnecessary scroll bars
+			visibleFrame.style.visibility = 'hidden';
+			visibleFrame.style.height = '';
+			visibleFrame.style.width = '';
+
+			return true;
+		}
+
+		return false;
+	};
+
 	// We don't want to slow down the page, so
 	// only do this once the page has been loaded.
 	var oldLoad = w.onload;
-	w.onload = function(w)
+	w.onload = function()
 	{
 		if (oldLoad) oldLoad();
+
+		// Remember the settings we are going to modify when displaying the iframe (if we have replaceLinks on)
+		if (replaceLinks && !origDocSettings)
+			origDocSettings = {
+				'height': d.body.style.height,
+				'maxHeight': d.body.style.maxHeight,
+				'overflow': d.body.style.overflow,
+				'padding': d.body.style.padding,
+				'margin': d.body.style.margin,
+				'border': d.body.style.border
+			};
 
 		// track our rendered stuff so we don't double-request
 		var rendered = {};
@@ -76,29 +104,29 @@ function checkHash(href)
 						return function() {
 							if (oldOnclick) oldOnclick();
 
-							// When the back button is used while an iframe is up, just hide the iframe instead
-							window.location.href = '#'+href;
-							hashCzecher = setInterval("checkHash('"+href+"')", 100);
+							// Set a new location, so the back button returns us to our original page
+							w.location.href = '#' + href;
+							// Look for the hash to change. If it does (back button pressed), hide the iframe
+							(function() { if (!checkHash(href)) w.setTimeout(arguments.callee, 100); })();
 
-							var iframe = d.getElementById(href);
+							visibleFrame = d.getElementById(href);
 							var height = d.documentElement.clientHeight;
-							height -= pageY(iframe) + scrollBuffer;
+							height -= pageY(visibleFrame) + scrollBuffer;
 							height = (height < 0) ? 0 : height;
 
 							// Modify page all at once
-							iframe.style.zIndex = "1337";
+							visibleFrame.style.zIndex = "1337";
 							d.body.style.height    = "100%";
 							d.body.style.maxHeight = "100%";
 							d.body.style.overflow  = "hidden";
 							d.body.style.padding   = "0";
 							d.body.style.margin    = "0";
 							d.body.style.border    = "0";
-							iframe.style.height     = height + 'px';
-							iframe.style.border     = "0";
-							iframe.style.width      = '100%';
-							iframe.style.visibility = 'visible';
-							iframe.id = 'jiagra-shown';
-							iframe.contentWindow.focus();
+							visibleFrame.style.height     = height + 'px';
+							visibleFrame.style.border     = "0";
+							visibleFrame.style.width      = '100%';
+							visibleFrame.style.visibility = 'visible';
+							visibleFrame.contentWindow.focus();
 							w.onresize = arguments.callee;
 							return false;
 						};
@@ -107,10 +135,10 @@ function checkHash(href)
 			}
 		};
 
-		function pageY(elem)
+		var pageY = function(elem)
 		{
 			return elem.offsetParent ? (elem.offsetTop + pageY(elem.offsetParent)) : elem.offsetTop;
-		}
+		};
 
 		var prerender = function(w, href, i)
 		{
