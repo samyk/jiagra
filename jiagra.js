@@ -1,5 +1,5 @@
 /*
- * jiagra 0.02
+ * jiagra 0.03
  *
  * Currently features:
  *  - ALPHA Prerendering/prefetching polyfill (pre-caching) for all browsers
@@ -19,7 +19,6 @@
  *  if one of the URLs fails, we stop precaching because we couldn't catch iframe error :( we could set a timeout...
  *  don't precache if browser actually supports prerender/prefetching
  *  allow replacing links with the iframe so we don't ever have to redirect
- *  support <meta> prefetching
  *
  *  Usage (or lack there of) may change any time.
  */
@@ -52,12 +51,12 @@
 			// Reset our page back to how it was before the iframe was displayed
 			if (origDocSettings)
 			{
-				d.body.style.height    = origDocSettings['height'];
-				d.body.style.maxHeight = origDocSettings['maxHeight'];
-				d.body.style.overflow  = origDocSettings['overflow'];
-				d.body.style.padding   = origDocSettings['padding'];
-				d.body.style.margin    = origDocSettings['margin'];
-				d.body.style.border    = origDocSettings['border'];
+				d.body.style.height    = origDocSettings.height;
+				d.body.style.maxHeight = origDocSettings.maxHeight;
+				d.body.style.overflow  = origDocSettings.overflow;
+				d.body.style.padding   = origDocSettings.padding;
+				d.body.style.margin    = origDocSettings.margin;
+				d.body.style.border    = origDocSettings.border;
 			}
 
 			// Make the iframe invsible and delete the height/width so it doesn't give the page unnecessary scroll bars
@@ -93,7 +92,7 @@
 		var rendered = {};
 
 		// we run this every time to replace iframes ASAP
-		var replaceLink = function(w, href)
+		var replaceLink = function(href)
 		{
 			for (var i = 0; i < a.length; i++)
 			{
@@ -107,7 +106,11 @@
 							// Set a new location, so the back button returns us to our original page
 							w.location.href = '#' + href;
 							// Look for the hash to change. If it does (back button pressed), hide the iframe
-							(function() { if (!checkHash(href)) w.setTimeout(arguments.callee, 100); })();
+							(function()
+							{
+								if (!checkHash(href))
+									w.setTimeout(arguments.callee, 100);
+							})();
 
 							visibleFrame = d.getElementById(href);
 							var height = d.documentElement.clientHeight;
@@ -140,11 +143,11 @@
 			return elem.offsetParent ? (elem.offsetTop + pageY(elem.offsetParent)) : elem.offsetTop;
 		};
 
-		var prerender = function(w, href, i)
+		var prerender = function(href, i)
 		{
 			// already rendered
 			if (rendered[href])
-				return findprerender(w, i + 1);
+				return findprerender(i + 1);
 			rendered[href] = 1;
 
 			// We're not really rendering, just loading the page in
@@ -156,8 +159,8 @@
 			{
 				// load next prerender so we don't render multiple items simultaneously
 				if (useIframe && replaceLinks)
-					replaceLink(w, href);
-				findprerender(w, i + 1);
+					replaceLink(href);
+				findprerender(i + 1);
 			};
 			iframe.src = href;
 			iframe.id  = href;
@@ -166,16 +169,32 @@
 			d.body.insertBefore(iframe, d.body.firstChild);	
 		};
 
-		var findprerender = function(w, i)
+		var findprerender = function(i)
 		{
-			var link = d.getElementsByTagName('link');
-			for (; i < link.length; i++)
-				if (link[i]['rel'] && link[i]['rel'].match(/\b(?:pre(?:render|fetch)|next)\b/))
-					return prerender(w, link[i]['href'], i);
+			for (; i < prefetchObjs.length; i++)
+				// Process link tags
+				if (prefetchObjs[i].nodeName === "LINK" && prefetchObjs[i].rel && prefetchObjs[i].rel.match(/\b(?:pre(?:render|fetch)|next)\b/))
+					return prerender(prefetchObjs[i].href, i);
+				// Process meta tags
+				else if (prefetchObjs[i].nodeName === "META" && prefetchObjs[i].httpEquiv === "Link" && prefetchObjs[i].content && prefetchObjs[i].content.match(/\brel=(?:pre(?:render|fetch)|next)\b/))
+					if (url = prefetchObjs[i].content.match(/^<(.*)>; /))
+						return prerender(url[1], i);
 		};
 
+		// Scan the page once for all of the link and meta elements that might have prefetch info
+		var prefetchObjs = [];
+		var link = d.getElementsByTagName('link'), meta = d.getElementsByTagName('meta');
+
+		// Put all the objects onto one array that we can process later
+		var llen = link.length, mlen = meta.length;
+		for (var x = 0; x < llen; x++)
+			prefetchObjs[x] = link[x];
+
+		for (; x - llen < mlen; x++)
+			prefetchObjs[x] = meta[x - llen];
+
 		// Find all pre-renders and do it!
-		findprerender(this, 0);
+		findprerender(0);
 	};
 
 })(this)
