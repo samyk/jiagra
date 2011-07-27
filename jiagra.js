@@ -1,9 +1,24 @@
 /*
- * jiagra 0.03
+ * jiagra 0.04
  *
  * Currently features:
- *  - ALPHA Prerendering/prefetching polyfill (pre-caching) for all browsers
+ *  - tracking timers/intervals to see if they've been fired or not
+ *  	window.checkTimeout(timeoutID)
+ *  	// returns 'active', 'fired' or 'cleared'
+ *
+ *  - get a list (array) of timers that are either active, cleared or fired
+ *  	window.activeTimeouts()
+ *  	window.clearedTimeouts()
+ *  	window.firedTimeouts()
+ *
+ *  - prerendering/prefetching polyfill (pre-caching) for all browsers
  *    even if your browser doesn't support either.
+ *
+ *  - John Resig's "degrading script tags", http://ejohn.org/blog/degrading-script-tags/
+ *    which now applies to ALL script tags on a page!
+ *  	<script src="path/to/script.js">
+ *  		code() // this gets executed after script.js loads
+ *  	</script>
  *
  * by Samy Kamkar, http://samy.pl/
  * 06/15/2011
@@ -23,8 +38,43 @@
  *  Usage (or lack there of) may change any time.
  */
 
-(function(w)
+(function(w, d, undefined)
 {
+
+	/***************************************************************************/
+	/* degrading script tags */
+	/* this code is by John Resig */
+	/* see: http://ejohn.org/blog/degrading-script-tags/ */
+	/***************************************************************************/
+
+	var smartTags = function()
+	{
+		// XXX -- since this is dynamic, could we just call it once?
+		var scripts = d.getElementsByTagName("script");
+
+		// dynamic array, .length may change
+		for (var i = 0, l = scripts.length; i < l; i++)
+		{
+			// the array may change as it's dynamic so store object
+			var script = scripts[i];
+
+			// finds scripts with a URL and execute the contents inside
+			if (script.src && !script.jExecuted)
+			{
+				script.jExecuted = true;
+				if (script.innerHTML)
+					eval(script.innerHTML);
+			}
+		}
+	};
+	smartTags();
+	addEvent('load', smartTags);
+
+
+	/***************************************************************************/
+	/* handle prerendering */
+	/***************************************************************************/
+
 	// set this to 0 if you suspect any of the pre-rendered
 	// URLs will use javascript to framebreak!
 	var useIframe = 1;
@@ -37,7 +87,6 @@
 	var scrollBuffer = 20;
 	var visibleFrame;
 
-	var d = w.document;
 	var a = d.getElementsByTagName('a');
 
 	var origDocSettings;
@@ -70,6 +119,7 @@
 		return false;
 	};
 
+	// XXX -- use eventlisteners/etc
 	// We don't want to slow down the page, so
 	// only do this once the page has been loaded.
 	var oldLoad = w.onload;
@@ -198,7 +248,101 @@
 		findprerender(0);
 	};
 
-})(this)
+
+
+	/***************************************************************************/
+	/* allow monitoring timers */
+	/***************************************************************************/
+
+	var timers = {};
+
+	// allow checking whether a timer is set, fired or cleared
+	w.checkInterval  = w.checkTimeout = function(timer) { return timers[timer] };
+
+	// return list of fired timers
+	w.firedTimeouts    = w.firedIntervals = function()
+	{
+		var active = [];
+		for (var timer in timers)
+			if (timers[timer] === 'fired')
+				active.push(timer);
+		return active;
+	};
+
+	// return list of cleared timers
+	w.clearedTimeouts  = w.clearedIntervals = function()
+	{
+		var active = [];
+		for (var timer in timers)
+			if (timers[timer] === 'cleared')
+				active.push(timer);
+		return active;
+	};
+
+	// return list of active timers
+	w.activeTimeouts = w.activeIntervals = function()
+	{
+		var active = [];
+		for (var timer in timers)
+			if (timers[timer] === 'active')
+				active.push(timer);
+		return active;
+	};
+
+	w._setTimeout    = w.setTimeout;
+	w._setInterval   = w.setInterval;
+	w._clearTimeout  = w.clearTimeout;
+	w._clearInterval = w.clearInterval;
+	w.clearInterval  = w.clearTimeout = function(timer)
+	{
+		// if it's already fired or doesn't exist, you can't really clear it.
+		if (timers[timer] === 'active')
+		{
+			timers[timer] = 'cleared';
+			return true;
+		}
+	};
+	w.setTimeout  = function () { return newSetTimeout(true,  Array.prototype.slice.call(arguments)) };
+	w.setInterval = function () { return newSetTimeout(false, Array.prototype.slice.call(arguments)) };
+
+	// our new timer tracker
+	var newSetTimeout = function(timeout, args)
+	{
+		// if we're passing a function ref or a string (don't use a string n00b!)
+		var origFn = typeof(args[0]) === 'function' ? args[0] : new Function(args[0]);
+
+		// our function calls a placeholder function that gets replaced once we know our timer id
+		// leave origFn in there just in case we get called before getting replaced (shouldn't happen)
+		// gecko also passes back the # of ms late it was to call back
+		var temp = function(ms) { return origFn(ms); };
+
+		// replace with placeholder
+		args[0] = function(ms) { return temp(ms) };
+
+		// create our real timer
+		var timer = timeout ? w._setTimeout.apply(this, args) : w._setInterval.apply(this, args);
+
+		// now change the sub-function we call to know when we've fired
+		temp = function(ms)
+		{
+			timers[timer] = 'fired';
+			return origFn(ms);
+		};
+			
+		timers[timer] = 'active';
+
+		return timer;
+	};
+
+	function addEvent(evt, cb, obj)
+	{
+		if (!obj) obj = w;
+		if (obj.addEventListener) obj.addEventListener(evt, cb, false);
+		else if (obj.attachEvent) obj.attachEvent('on' + evt, cb);
+	}
+
+})(this, this.document);
+
 
 /* Or for a good time!
 
