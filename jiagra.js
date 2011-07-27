@@ -11,6 +11,9 @@
  *  	window.clearedTimeouts()
  *  	window.firedTimeouts()
  *
+ *  - clearInterval/clearTimeout now return 'true' if cleared,
+ *    'false' if already cleared/fired, or undefined if no such timer
+ *
  *  - prerendering/prefetching polyfill (pre-caching) for all browsers
  *    even if your browser doesn't support either.
  *
@@ -30,6 +33,8 @@
  *  https://developer.mozilla.org/en/Link_prefetching_FAQ
  *
  * TODO:
+ *  pass how late in ms a timer got fired (Gecko does this, other browsers don't)
+ *
  *  an iframe can break out, we could prevent this same-domain with ajax get + html parser + caching, can support single-file pre-caching for cross-domain with Image(), but what about a cross-domain site (without proxy)?
  *  if one of the URLs fails, we stop precaching because we couldn't catch iframe error :( we could set a timeout...
  *  don't precache if browser actually supports prerender/prefetching
@@ -56,6 +61,7 @@
 		for (var i = 0, l = scripts.length; i < l; i++)
 		{
 			// the array may change as it's dynamic so store object
+			// in case something gets inserted before it
 			var script = scripts[i];
 
 			// finds scripts with a URL and execute the contents inside
@@ -69,6 +75,101 @@
 	};
 	smartTags();
 	addEvent('load', smartTags);
+
+
+	/***************************************************************************/
+	/* allow monitoring timers */
+	/***************************************************************************/
+
+	var timers = {};
+
+	// allow checking whether a timer is set, fired or cleared
+	w.checkInterval  = w.checkTimeout = function(timer) { return timers[timer] };
+
+	// return list of fired timers
+	w.firedTimeouts    = w.firedIntervals = function()
+	{
+		var active = [];
+		for (var timer in timers)
+			if (timers[timer] === 'fired')
+				active.push(timer);
+		return active;
+	};
+
+	// return list of cleared timers
+	w.clearedTimeouts  = w.clearedIntervals = function()
+	{
+		var active = [];
+		for (var timer in timers)
+			if (timers[timer] === 'cleared')
+				active.push(timer);
+		return active;
+	};
+
+	// return list of active timers
+	w.activeTimeouts = w.activeIntervals = function()
+	{
+		var active = [];
+		for (var timer in timers)
+			if (timers[timer] === 'active')
+				active.push(timer);
+		return active;
+	};
+
+	w._setTimeout    = w.setTimeout;
+	w._setInterval   = w.setInterval;
+	w._clearTimeout  = w.clearTimeout;
+	w._clearInterval = w.clearInterval;
+	w.clearInterval  = w.clearTimeout = function(timer)
+	{
+		// if it's already fired or doesn't exist, you can't really clear it.
+		if (timers[timer] === 'active')
+		{
+			w._clearInterval(timer);
+			timers[timer] = 'cleared';
+			return true;
+		}
+		else if (timers[timer])
+			return false;
+
+		// timer that doesn't exist
+		return undefined;
+	};
+	w.setTimeout  = function () { return newSetTimeout(true,  Array.prototype.slice.call(arguments)) };
+	w.setInterval = function () { return newSetTimeout(false, Array.prototype.slice.call(arguments)) };
+
+	// our new timer tracker
+	var newSetTimeout = function(timeout, args)
+	{
+		// if we're passing a function ref or a string (don't use a string n00b!)
+		var origFn = typeof(args[0]) === 'function' ? args[0] : new Function(args[0]);
+
+		// our function calls a placeholder function that gets replaced once we know our timer id
+		// leave origFn in there just in case we get called before getting replaced (shouldn't happen)
+		// gecko also passes back the # of ms late it was to call back
+		var temp = function(ms) { return origFn(ms); };
+
+		// replace with placeholder
+		args[0] = function(ms) { return temp(ms) };
+
+		// create our real timer
+		// XXX -- do we need to allow different scope other than `this`?
+		var timer = timeout ? w._setTimeout.apply(this, args) : w._setInterval.apply(this, args);
+
+		// now change the sub-function we call to know when we've fired
+		// now that we know our timer ID (only known AFTER calling setTimeout)
+		temp = function(ms)
+		{
+			// now we've been fired by the timeout
+			timers[timer] = 'fired';
+			return origFn(ms);
+		};
+
+		// we have an active (set) timer
+		timers[timer] = 'active';
+		return timer;
+	};
+
 
 
 	/***************************************************************************/
@@ -249,91 +350,11 @@
 	};
 
 
-
 	/***************************************************************************/
-	/* allow monitoring timers */
+	/* general functions */
 	/***************************************************************************/
 
-	var timers = {};
-
-	// allow checking whether a timer is set, fired or cleared
-	w.checkInterval  = w.checkTimeout = function(timer) { return timers[timer] };
-
-	// return list of fired timers
-	w.firedTimeouts    = w.firedIntervals = function()
-	{
-		var active = [];
-		for (var timer in timers)
-			if (timers[timer] === 'fired')
-				active.push(timer);
-		return active;
-	};
-
-	// return list of cleared timers
-	w.clearedTimeouts  = w.clearedIntervals = function()
-	{
-		var active = [];
-		for (var timer in timers)
-			if (timers[timer] === 'cleared')
-				active.push(timer);
-		return active;
-	};
-
-	// return list of active timers
-	w.activeTimeouts = w.activeIntervals = function()
-	{
-		var active = [];
-		for (var timer in timers)
-			if (timers[timer] === 'active')
-				active.push(timer);
-		return active;
-	};
-
-	w._setTimeout    = w.setTimeout;
-	w._setInterval   = w.setInterval;
-	w._clearTimeout  = w.clearTimeout;
-	w._clearInterval = w.clearInterval;
-	w.clearInterval  = w.clearTimeout = function(timer)
-	{
-		// if it's already fired or doesn't exist, you can't really clear it.
-		if (timers[timer] === 'active')
-		{
-			timers[timer] = 'cleared';
-			return true;
-		}
-	};
-	w.setTimeout  = function () { return newSetTimeout(true,  Array.prototype.slice.call(arguments)) };
-	w.setInterval = function () { return newSetTimeout(false, Array.prototype.slice.call(arguments)) };
-
-	// our new timer tracker
-	var newSetTimeout = function(timeout, args)
-	{
-		// if we're passing a function ref or a string (don't use a string n00b!)
-		var origFn = typeof(args[0]) === 'function' ? args[0] : new Function(args[0]);
-
-		// our function calls a placeholder function that gets replaced once we know our timer id
-		// leave origFn in there just in case we get called before getting replaced (shouldn't happen)
-		// gecko also passes back the # of ms late it was to call back
-		var temp = function(ms) { return origFn(ms); };
-
-		// replace with placeholder
-		args[0] = function(ms) { return temp(ms) };
-
-		// create our real timer
-		var timer = timeout ? w._setTimeout.apply(this, args) : w._setInterval.apply(this, args);
-
-		// now change the sub-function we call to know when we've fired
-		temp = function(ms)
-		{
-			timers[timer] = 'fired';
-			return origFn(ms);
-		};
-			
-		timers[timer] = 'active';
-
-		return timer;
-	};
-
+	// XXX -- does this work in older browsers? eg ie6
 	function addEvent(evt, cb, obj)
 	{
 		if (!obj) obj = w;
