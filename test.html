@@ -2,6 +2,8 @@
 <html lang="en">
 <head>
 	<script src="jiagra.js">
+		if (document.currentScript)
+			alert(document.currentScript.src);
 		window.setInterval(function() { alert("Hi") }, 1000);
 		var a = window.activeTimeouts();
 		for (var i = 0; i < a.length; i++)

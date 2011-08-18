@@ -1,5 +1,5 @@
 /*
- * jiagra 0.04
+ * jiagra 0.05
  *
  * Currently features:
  *  - tracking timers/intervals to see if they've been fired or not
@@ -17,15 +17,20 @@
  *      window.firedTimeouts()   // fired, firedActive or firedCleared
  *
  *  - clearInterval/clearTimeout now returns 'true' if cleared,
- *    'false' if already cleared/fired, or undefined if no such timer
- *    - note that a timeout that is already 'fired' won't adjust to 'cleared'
+ *      'false' if already cleared/fired, or undefined if no such timer
+ *      Note that a timeout that is already 'fired' won't adjust to 'cleared'
+ *
+ *  - document.currentScript polyfill + improvements over browser implementations
+ *      Returns the script object which document.currentScript is getting called from.
+ *      Unlike Opera/FF's built-in implementation, it will even work in callbacks and event handlers.
+ *      It will also work on browsers which don't have a native implementation such as IE/Chrome/FF3.
  *
  *  - prerendering/prefetching polyfill (pre-caching) for all browsers
  *    even if your browser doesn't support either.
  *
  *  - John Resig's "degrading script tags", http://ejohn.org/blog/degrading-script-tags/
  *    which now applies to ALL script tags on a page!
- *    - can be globally enabled/disabled, and individually enabled/disabled
+ *      // can be globally enabled/disabled, and individually enabled/disabled
  *      <script src="path/to/script.js">
  *          code() // this gets executed after script.js loads
  *      </script>
@@ -369,6 +374,81 @@
 			findprerender(0);
 		};
 	};
+
+
+	/***************************************************************************/
+	/* document.currentScript polyfill + improvements */
+	/***************************************************************************/
+	/*
+		Notes:
+		document.currentScript in FF4/Opera isn't useful because it won't return from a callback or event handler
+		Chrome / FF3+ work fine (via try/catch)
+		IE can *either* obtain params passed to function (via try/catch) OR obtain URL script executed from (via window.onerror), but not sure if both will work together
+		Safari < 5.1 doesn't support window.onerror nor does it provide full trace (via try/catch), however you can get "last" stack URL from try/catch (e.sourceURL)
+		arguments.callee.caller returns null from remotely loaded JS
+		Setting a global var during onload isn't useful because the JS will start to execute first
+		Setting a global var just before creating the script isn't useful because the call may be asynchronous and another JS file may load and execute at that time, then believe it's a different script
+		This works when scripts are created through a script tag, d.createElement() or d.write(), doesn't matter
+	*/
+	d._currentScript = d.currentScript;
+
+	// return script object based off of src
+	var getScriptFromURL = function(url)
+	{
+		for (var i = 0; i < scripts.length; i++)
+			if (scripts[i].src === url)
+				return scripts[i];
+
+		return undefined;
+	}
+
+	var actualScript = d.actualScript = function()
+	{
+		// use native implementation if it knows what's up (doubt it, sucker)
+		if (d._currentScript)
+			return d._currentScript;
+
+		// we could hit a function outside of try to call window.onerror and get url, but problem with this:
+		// 1) onerror won't resume execution
+		// 2) doesn't tell us what was *passed* to the function (doesn't matter here)
+		// 3) safari doesn't support window.onerror
+		// this might be a good solution for MSIE though since stack trace does not show URLs
+		/*
+		if (navigator.userAgent.indexOf('MSIE ') !== -1)
+		{
+			w.onerror = function(error, url, line)
+			{
+				if (error.indexOf('Object exp') !== -1)
+				{
+					foo2(undefined, url);
+					return true;
+				}
+			};
+			omgwtf
+		}
+		*/
+
+		var stack;
+		try
+		{
+			omgwtf
+		} catch(e) {
+			stack = e.stack;
+		};
+
+		if (!stack)
+			return undefined;
+
+		// chrome uses at, ff uses @
+		var e = stack.indexOf(' at ') !== -1 ? ' at ' : '@';
+		while (stack.indexOf(e) !== -1)
+			stack = stack.substring(stack.indexOf(e) + e.length);
+		stack = stack.substring(0, stack.indexOf(':', stack.indexOf(':')+1));
+
+		return getScriptFromURL(stack);
+	};
+	if (d.__defineGetter__)
+		d.__defineGetter__('currentScript', actualScript);
 
 
 	/***************************************************************************/

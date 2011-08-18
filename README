@@ -22,15 +22,20 @@ performance enhancement.
  *      window.firedTimeouts()   // fired, firedActive or firedCleared
  *
  *  - clearInterval/clearTimeout now returns 'true' if cleared,
- *    'false' if already cleared/fired, or undefined if no such timer
- *    - note that a timeout that is already 'fired' won't adjust to 'cleared'
+ *      'false' if already cleared/fired, or undefined if no such timer
+ *      Note that a timeout that is already 'fired' won't adjust to 'cleared'
+ *
+ *  - document.currentScript polyfill + improvements over browser implementations
+ *      Returns the script object which document.currentScript is getting called from.
+ *      Unlike Opera/FF's built-in implementation, it will even work in callbacks and event handlers.
+ *      It will also work on browsers which don't have a native implementation such as IE/Chrome/FF3.
  *
  *  - prerendering/prefetching polyfill (pre-caching) for all browsers
  *    even if your browser doesn't support either.
  *
  *  - John Resig's "degrading script tags", http://ejohn.org/blog/degrading-script-tags/
  *    which now applies to ALL script tags on a page!
- *    - can be globally enabled/disabled, and individually enabled/disabled
+ *      // can be globally enabled/disabled, and individually enabled/disabled
  *      <script src="path/to/script.js">
  *          code() // this gets executed after script.js loads
  *      </script>
