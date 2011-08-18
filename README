@@ -4,18 +4,59 @@ by Samy Kamkar, code@samy.pl
 06/15/2011, http://samy.pl/jiagra
 
 jiagra is a stand-alone javascript API for automatic website
-performance enhancement. Currently, it contains a pseudo-polyfill
-for pre-rendering/pre-fetching. This allows the page to load/cache
-files you expect the user to be accessing, such as the next link.
+performance enhancement.
 
+ * Currently features:
+ *  - tracking timers/intervals to see if they've been fired or not
+ *      window.checkTimeout(timeoutID)
+ *      // returns 'active', 'fired', 'firedActive', 'cleared' or 'firedCleared'
+ *      // active has never fired (interval or timeout)
+ *      // cleared has never fired and been cleared (interval or timeout)
+ *      // fired is a timeout that has fired
+ *      // firedActive is an interval that has fired and still active
+ *      // firedCleared is an interval that has fired and cleared
+ *
+ *  - get a list (array) of timers that are either active, cleared or fired
+ *      window.activeTimeouts()  // active or firedActive
+ *      window.clearedTimeouts() // cleared or firedCleared
+ *      window.firedTimeouts()   // fired, firedActive or firedCleared
+ *
+ *  - clearInterval/clearTimeout now returns 'true' if cleared,
+ *    'false' if already cleared/fired, or undefined if no such timer
+ *    - note that a timeout that is already 'fired' won't adjust to 'cleared'
+ *
+ *  - prerendering/prefetching polyfill (pre-caching) for all browsers
+ *    even if your browser doesn't support either.
+ *
+ *  - John Resig's "degrading script tags", http://ejohn.org/blog/degrading-script-tags/
+ *    which now applies to ALL script tags on a page!
+ *    - can be globally enabled/disabled, and individually enabled/disabled
+ *      <script src="path/to/script.js">
+ *          code() // this gets executed after script.js loads
+ *      </script>
+ *      <script src="path/to/script.js" degrade="true">
+ *          code() // this will run even if degradeEnabled is turned off
+ *      </script>
+ *      <script src="path/to/script.js" degrade="false">
+ *          code() // this will NOT run
+ *      </script>
+
+
+Currently, it contains a pseudo-polyfill for pre-rendering/pre-fetching,
+advanced timeout/interval functions and degrading script tags,
+
+Timeout/interval functions: these functions allow advanced
+setting, monitoring, clearing and checking of timeouts/intervals,
+even if executed from other scripts you don't control.
+
+Pre-rendering/pre-fetching: This allows the page to load/cache
+files you expect the user to be accessing, such as the next link.
 Using actual browser prerendering is only supported in a handful
 of bleeding-edge browsers, however this polyfill should work in
-any browser!
-
-This allows pages to be pre-cached by the browser and ready to load
-as soon as the user clicks, specifically determined by the website
-maintainer (or smarty-pants code that figures out which pages are
-accessed most).
+any browser! This allows pages to be pre-cached by the browser and
+ready to load as soon as the user clicks, specifically determined
+by the website maintainer (or smarty-pants code that figures out
+which pages are accessed most).
 
 
 INSTALLATION:

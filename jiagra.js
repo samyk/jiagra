@@ -3,25 +3,38 @@
  *
  * Currently features:
  *  - tracking timers/intervals to see if they've been fired or not
- *  	window.checkTimeout(timeoutID)
- *  	// returns 'active', 'fired' or 'cleared'
+ *      window.checkTimeout(timeoutID)
+ *      // returns 'active', 'fired', 'firedActive', 'cleared' or 'firedCleared'
+ *      // active has never fired (interval or timeout)
+ *      // cleared has never fired and been cleared (interval or timeout)
+ *      // fired is a timeout that has fired
+ *      // firedActive is an interval that has fired and still active
+ *      // firedCleared is an interval that has fired and cleared
  *
  *  - get a list (array) of timers that are either active, cleared or fired
- *  	window.activeTimeouts()
- *  	window.clearedTimeouts()
- *  	window.firedTimeouts()
+ *      window.activeTimeouts()  // active or firedActive
+ *      window.clearedTimeouts() // cleared or firedCleared
+ *      window.firedTimeouts()   // fired, firedActive or firedCleared
  *
- *  - clearInterval/clearTimeout now return 'true' if cleared,
+ *  - clearInterval/clearTimeout now returns 'true' if cleared,
  *    'false' if already cleared/fired, or undefined if no such timer
+ *    - note that a timeout that is already 'fired' won't adjust to 'cleared'
  *
  *  - prerendering/prefetching polyfill (pre-caching) for all browsers
  *    even if your browser doesn't support either.
  *
  *  - John Resig's "degrading script tags", http://ejohn.org/blog/degrading-script-tags/
  *    which now applies to ALL script tags on a page!
- *  	<script src="path/to/script.js">
- *  		code() // this gets executed after script.js loads
- *  	</script>
+ *    - can be globally enabled/disabled, and individually enabled/disabled
+ *      <script src="path/to/script.js">
+ *          code() // this gets executed after script.js loads
+ *      </script>
+ *      <script src="path/to/script.js" degrade="true">
+ *          code() // this will run even if degradeEnabled is turned off
+ *      </script>
+ *      <script src="path/to/script.js" degrade="false">
+ *          code() // this will NOT run
+ *      </script>
  *
  * by Samy Kamkar, http://samy.pl/
  * 06/15/2011
@@ -34,7 +47,6 @@
  *
  * TODO:
  *  pass how late in ms a timer got fired (Gecko does this, other browsers don't)
- *
  *  an iframe can break out, we could prevent this same-domain with ajax get + html parser + caching, can support single-file pre-caching for cross-domain with Image(), but what about a cross-domain site (without proxy)?
  *  if one of the URLs fails, we stop precaching because we couldn't catch iframe error :( we could set a timeout...
  *  don't precache if browser actually supports prerender/prefetching
@@ -45,6 +57,26 @@
 
 (function(w, d, undefined)
 {
+	// are degrading script tags enabled by default?
+	var degradeEnabled = 1;
+
+	// set this to 0 if you suspect any of the pre-rendered
+	// URLs will use javascript to framebreak!
+	var useIframe = 1;
+
+	// when using iframes to precache pages, we can replace the
+	// actual links on the page with an onclick handler that makes
+	// the iframe span the entire page instead of redirecting
+	var replaceLinks = 1;
+
+	// size in px of scrollbar
+	var scrollBuffer = 20;
+
+	var scripts = d.getElementsByTagName('script'),
+		a		= d.getElementsByTagName('a'),
+		link	= d.getElementsByTagName('link'),
+		meta	= d.getElementsByTagName('meta');
+
 
 	/***************************************************************************/
 	/* degrading script tags */
@@ -54,18 +86,19 @@
 
 	var smartTags = function()
 	{
-		// XXX -- since this is dynamic, could we just call it once?
-		var scripts = d.getElementsByTagName("script");
-
 		// dynamic array, .length may change
 		for (var i = 0, l = scripts.length; i < l; i++)
 		{
 			// the array may change as it's dynamic so store object
 			// in case something gets inserted before it
 			var script = scripts[i];
+			var degrade = script.getAttribute ? script.getAttribute('degrade') : script.degrade;
 
 			// finds scripts with a URL and execute the contents inside
-			if (script.src && !script.jExecuted)
+			if (script.src && !script.jExecuted && (
+				( degradeEnabled && !fals(degrade)) ||
+				(!degradeEnabled &&  tru (degrade)))
+			)
 			{
 				script.jExecuted = true;
 				if (script.innerHTML)
@@ -73,8 +106,6 @@
 			}
 		}
 	};
-	smartTags();
-	addEvent('load', smartTags);
 
 
 	/***************************************************************************/
@@ -86,24 +117,24 @@
 	// allow checking whether a timer is set, fired or cleared
 	w.checkInterval  = w.checkTimeout = function(timer) { return timers[timer] };
 
-	// return list of fired timers
+	// return list of fired timers (at least fired once)
 	w.firedTimeouts    = w.firedIntervals = function()
 	{
-		var active = [];
+		var fired = [];
 		for (var timer in timers)
-			if (timers[timer] === 'fired')
-				active.push(timer);
-		return active;
+			if (timers[timer].substr(0, 5) === 'fired')
+				fired.push(timer);
+		return fired;
 	};
 
 	// return list of cleared timers
 	w.clearedTimeouts  = w.clearedIntervals = function()
 	{
-		var active = [];
+		var cleared = [];
 		for (var timer in timers)
-			if (timers[timer] === 'cleared')
-				active.push(timer);
-		return active;
+			if (timers[timer] === 'cleared' || timers[timer] === 'firedCleared')
+				cleared.push(timer);
+		return cleared;
 	};
 
 	// return list of active timers
@@ -111,7 +142,8 @@
 	{
 		var active = [];
 		for (var timer in timers)
-			if (timers[timer] === 'active')
+			// an interval that's been fired is still active
+			if (timers[timer] === 'active' || timers[timer] === 'firedActive')
 				active.push(timer);
 		return active;
 	};
@@ -123,10 +155,10 @@
 	w.clearInterval  = w.clearTimeout = function(timer)
 	{
 		// if it's already fired or doesn't exist, you can't really clear it.
-		if (timers[timer] === 'active')
+		if (timers[timer] === 'active' || timers[timer] === 'firedActive')
 		{
 			w._clearInterval(timer);
-			timers[timer] = 'cleared';
+			timers[timer] = timers[timer] === 'active' ? 'cleared' : 'firedCleared';
 			return true;
 		}
 		else if (timers[timer])
@@ -154,14 +186,17 @@
 
 		// create our real timer
 		// XXX -- do we need to allow different scope other than `this`?
-		var timer = timeout ? w._setTimeout.apply(this, args) : w._setInterval.apply(this, args);
+		var fn = timeout ? w._setTimeout : w._setInterval;
+
+		// support IE6
+		var timer = fn.apply ? fn.apply(this, args) : fn(args[0], args[1], args[2]); 
 
 		// now change the sub-function we call to know when we've fired
 		// now that we know our timer ID (only known AFTER calling setTimeout)
 		temp = function(ms)
 		{
 			// now we've been fired by the timeout
-			timers[timer] = 'fired';
+			timers[timer] = timeout ? 'fired' : 'firedActive';
 			return origFn(ms);
 		};
 
@@ -176,21 +211,11 @@
 	/* handle prerendering */
 	/***************************************************************************/
 
-	// set this to 0 if you suspect any of the pre-rendered
-	// URLs will use javascript to framebreak!
-	var useIframe = 1;
+	var visibleFrame,
+		origDocSettings;
 
-	// when using iframes to precache pages, we can replace the
-	// actual links on the page with an onclick handler that makes
-	// the iframe span the entire page instead of redirecting
-	var replaceLinks = 1;
-
-	var scrollBuffer = 20;
-	var visibleFrame;
-
-	var a = d.getElementsByTagName('a');
-
-	var origDocSettings;
+	// Scan the page once for all of the link and meta elements that might have prefetch info
+	var prefetchObjs = [];
 
 	// Checks for a change in w.location.hash, and if so returns us to the original page
 	var checkHash = function(href)
@@ -220,123 +245,105 @@
 		return false;
 	};
 
-	// XXX -- use eventlisteners/etc
-	// We don't want to slow down the page, so
-	// only do this once the page has been loaded.
-	var oldLoad = w.onload;
-	w.onload = function()
+
+	// track our rendered stuff so we don't double-request
+	var rendered = {};
+
+	// we run this every time to replace iframes ASAP
+	var replaceLink = function(href)
 	{
-		if (oldLoad) oldLoad();
-
-		// Remember the settings we are going to modify when displaying the iframe (if we have replaceLinks on)
-		if (replaceLinks && !origDocSettings)
-			origDocSettings = {
-				'height': d.body.style.height,
-				'maxHeight': d.body.style.maxHeight,
-				'overflow': d.body.style.overflow,
-				'padding': d.body.style.padding,
-				'margin': d.body.style.margin,
-				'border': d.body.style.border
-			};
-
-		// track our rendered stuff so we don't double-request
-		var rendered = {};
-
-		// we run this every time to replace iframes ASAP
-		var replaceLink = function(href)
+		for (var i = 0; i < a.length; i++)
 		{
-			for (var i = 0; i < a.length; i++)
+			if (a[i].href === href || a[i].href === href + '/')
 			{
-				if (a[i].href === href || a[i].href === href + '/')
-				{
-					var oldOnclick = a[i].onclick;
-					a[i].onclick = (function(href, oldOnclick) {
-						return function() {
-							if (oldOnclick) oldOnclick();
+				var oldOnclick = a[i].onclick;
+				a[i].onclick = (function(href, oldOnclick) {
+					return function() {
+						if (oldOnclick) oldOnclick();
 
-							// Set a new location, so the back button returns us to our original page
-							w.location.href = '#' + href;
-							// Look for the hash to change. If it does (back button pressed), hide the iframe
-							(function()
-							{
-								if (!checkHash(href))
-									w.setTimeout(arguments.callee, 100);
-							})();
+						// Set a new location, so the back button returns us to our original page
+						w.location.href = '#' + href;
+						// Look for the hash to change. If it does (back button pressed), hide the iframe
+						(function()
+						{
+							if (!checkHash(href))
+								w.setTimeout(arguments.callee, 100);
+						})();
 
-							visibleFrame = d.getElementById(href);
-							var height = d.documentElement.clientHeight;
-							height -= pageY(visibleFrame) + scrollBuffer;
-							height = (height < 0) ? 0 : height;
+						visibleFrame = d.getElementById(href);
+						var height = d.documentElement.clientHeight;
+						height -= pageY(visibleFrame) + scrollBuffer;
+						height = (height < 0) ? 0 : height;
 
-							// Modify page all at once
-							visibleFrame.style.zIndex = "1337";
-							d.body.style.height    = "100%";
-							d.body.style.maxHeight = "100%";
-							d.body.style.overflow  = "hidden";
-							d.body.style.padding   = "0";
-							d.body.style.margin    = "0";
-							d.body.style.border    = "0";
-							visibleFrame.style.backgroundColor = "#FFFFFF";
-							visibleFrame.style.height     = height + 'px';
-							visibleFrame.style.border     = "0";
-							visibleFrame.style.width      = '100%';
-							visibleFrame.style.visibility = 'visible';
-							visibleFrame.contentWindow.focus();
-							w.onresize = arguments.callee;
-							return false;
-						};
-					})(href, oldOnclick);
-				}
+						// Modify page all at once
+						visibleFrame.style.zIndex = "1337";
+						d.body.style.height    = "100%";
+						d.body.style.maxHeight = "100%";
+						d.body.style.overflow  = "hidden";
+						d.body.style.padding   = "0";
+						d.body.style.margin    = "0";
+						d.body.style.border    = "0";
+						visibleFrame.style.backgroundColor = "#FFFFFF";
+						visibleFrame.style.height     = height + 'px';
+						visibleFrame.style.border     = "0";
+						visibleFrame.style.width      = '100%';
+						visibleFrame.style.visibility = 'visible';
+						visibleFrame.contentWindow.focus();
+						w.onresize = arguments.callee;
+						return false;
+					};
+				})(href, oldOnclick);
 			}
-		};
+		}
+	};
 
-		var pageY = function(elem)
+	var pageY = function(elem)
+	{
+		return elem.offsetParent ? (elem.offsetTop + pageY(elem.offsetParent)) : elem.offsetTop;
+	};
+
+	var prerender = function(href, i)
+	{
+		// already rendered
+		if (rendered[href])
+			return findprerender(i + 1);
+		rendered[href] = 1;
+
+		// We're not really rendering, just loading the page in
+		// a hidden iframe in order to cache all objects on the page.
+		var iframe = d.createElement(useIframe ? 'iframe' : 'img');
+		iframe.style.visibility = 'hidden';
+		iframe.style.position   = 'absolute';
+		iframe.onload = iframe.onerror = function()
 		{
-			return elem.offsetParent ? (elem.offsetTop + pageY(elem.offsetParent)) : elem.offsetTop;
+			// load next prerender so we don't render multiple items simultaneously
+			if (useIframe && replaceLinks)
+				replaceLink(href);
+			findprerender(i + 1);
 		};
+		iframe.src = href;
+		iframe.id  = href;
 
-		var prerender = function(href, i)
-		{
-			// already rendered
-			if (rendered[href])
-				return findprerender(i + 1);
-			rendered[href] = 1;
+		// append iframe to DOM
+		d.body.insertBefore(iframe, d.body.firstChild);	
+	};
 
-			// We're not really rendering, just loading the page in
-			// a hidden iframe in order to cache all objects on the page.
-			var iframe = d.createElement(useIframe ? 'iframe' : 'img');
-			iframe.style.visibility = 'hidden';
-			iframe.style.position   = 'absolute';
-			iframe.onload = iframe.onerror = function()
-			{
-				// load next prerender so we don't render multiple items simultaneously
-				if (useIframe && replaceLinks)
-					replaceLink(href);
-				findprerender(i + 1);
-			};
-			iframe.src = href;
-			iframe.id  = href;
+	// go through objects to prerender
+	var findprerender = function(i)
+	{
+		for (; i < prefetchObjs.length; i++)
+			// Process link tags
+			if (prefetchObjs[i].nodeName === "LINK" && prefetchObjs[i].rel && prefetchObjs[i].rel.match(/\b(?:pre(?:render|fetch)|next)\b/))
+				return prerender(prefetchObjs[i].href, i);
+			// Process meta tags
+			else if (prefetchObjs[i].nodeName === "META" && prefetchObjs[i].httpEquiv === "Link" && prefetchObjs[i].content && prefetchObjs[i].content.match(/\brel=(?:pre(?:render|fetch)|next)\b/))
+				if (url = prefetchObjs[i].content.match(/^<(.*)>; /))
+					return prerender(url[1], i);
+	};
 
-			// append iframe to DOM
-			d.body.insertBefore(iframe, d.body.firstChild);	
-		};
-
-		var findprerender = function(i)
-		{
-			for (; i < prefetchObjs.length; i++)
-				// Process link tags
-				if (prefetchObjs[i].nodeName === "LINK" && prefetchObjs[i].rel && prefetchObjs[i].rel.match(/\b(?:pre(?:render|fetch)|next)\b/))
-					return prerender(prefetchObjs[i].href, i);
-				// Process meta tags
-				else if (prefetchObjs[i].nodeName === "META" && prefetchObjs[i].httpEquiv === "Link" && prefetchObjs[i].content && prefetchObjs[i].content.match(/\brel=(?:pre(?:render|fetch)|next)\b/))
-					if (url = prefetchObjs[i].content.match(/^<(.*)>; /))
-						return prerender(url[1], i);
-		};
-
-		// Scan the page once for all of the link and meta elements that might have prefetch info
-		var prefetchObjs = [];
-		var link = d.getElementsByTagName('link'), meta = d.getElementsByTagName('meta');
-
+	// onload function for prerendering
+	var startPrerendering = function()
+	{
 		// Put all the objects onto one array that we can process later
 		var llen = link.length, mlen = meta.length;
 		for (var x = 0; x < llen; x++)
@@ -345,22 +352,74 @@
 		for (; x - llen < mlen; x++)
 			prefetchObjs[x] = meta[x - llen];
 
-		// Find all pre-renders and do it!
-		findprerender(0);
+		if (prefetchObjs.length > 0)
+		{
+			// Remember the settings we are going to modify when displaying the iframe (if we have replaceLinks on)
+			if (replaceLinks && !origDocSettings)
+				origDocSettings = {
+					'height':		d.body.style.height,
+					'maxHeight':	d.body.style.maxHeight,
+					'overflow':		d.body.style.overflow,
+					'padding':		d.body.style.padding,
+					'margin':		d.body.style.margin,
+					'border':		d.body.style.border
+				};
+
+			// Find all pre-renders and do it!
+			findprerender(0);
+		};
 	};
+
+
+	/***************************************************************************/
+	/* onload events to fire */
+	/***************************************************************************/
+	addEvent(function() { 
+		// begin our prerendering routine
+		startPrerendering();
+
+		// use our smart "degrading" script tags
+		smartTags();
+	});
 
 
 	/***************************************************************************/
 	/* general functions */
 	/***************************************************************************/
 
-	// XXX -- does this work in older browsers? eg ie6
-	function addEvent(evt, cb, obj)
+	function addEvent(cb, evt, obj)
 	{
-		if (!obj) obj = w;
-		if (obj.addEventListener) obj.addEventListener(evt, cb, false);
-		else if (obj.attachEvent) obj.attachEvent('on' + evt, cb);
+		// default to onload
+		if (!evt)
+			evt = 'load';
+
+		// default to window as 'this'
+		if (!obj)
+			obj = w;
+
+		// if we're already completed, run now
+		if (d.readyState === 'complete') 
+			cb();
+
+		// set event listener
+		else if (obj.addEventListener)
+			obj.addEventListener(evt, cb, false);
+		else if (obj.attachEvent)
+			obj.attachEvent('on' + evt, cb);
 	}
+
+
+	function tru(test)
+	{
+		return test === 'true' || test === true || test === '1' || test === 1;
+	}
+
+	// explicit false, this is NOT the same as !tru()
+	function fals(test)
+	{
+		return test === 'false' || test === false || test === '0' || test === 0;
+	}
+			
 
 })(this, this.document);
 
