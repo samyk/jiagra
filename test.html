@@ -1,48 +1,44 @@
 <!doctype html>
 <html lang="en">
 <head>
-	<script src="jiagra.js">
-		if (document.currentScript)
-			alert(document.currentScript.src);
-		window.setInterval(function() { alert("Hi") }, 1000);
-		var a = window.activeTimeouts();
-		for (var i = 0; i < a.length; i++)
-			alert("active: " + a[i]);
-alert("active = " + checkTimeout(a))
+<script src="jiagra.js">
+	if (document.currentScript)
+		alert(document.currentScript.src);
+	window.setInterval(function() { alert("Hi") }, 1000);
+	var a = window.activeTimeouts();
+	for (var i = 0; i < a.length; i++)
+		alert("active: " + a[i]);
+	alert("active = " + checkTimeout(a))
 
 _setTimeout(function() { alert(checkTimeout(a)) }, 2000)
 _setTimeout(function() { 
-		var b = window.activeTimeouts();
-		for (var i = 0; i < b.length; i++)
-			alert("active: " + b[i]);
+	var b = window.activeTimeouts();
+	for (var i = 0; i < b.length; i++)
+		alert("active: " + b[i]);
 
-		var b = window.clearedTimeouts();
-		for (var i = 0; i < b.length; i++)
-			alert("cleared: " + b[i]);
+	var b = window.clearedTimeouts();
+	for (var i = 0; i < b.length; i++)
+		alert("cleared: " + b[i]);
 
-		var b = window.firedTimeouts();
-		for (var i = 0; i < b.length; i++)
-			alert("fired: " + b[i]);
-
-
+	var b = window.firedTimeouts();
+	for (var i = 0; i < b.length; i++)
+		alert("fired: " + b[i]);
 },2500)
 _setTimeout(function() { alert(clearTimeout(a)) }, 3000)
 _setTimeout(function() { alert(clearTimeout(a)) }, 3001)
 _setTimeout(function() { alert(checkTimeout(a)) }, 4000)
 _setTimeout(function() { 
-		var b = window.activeTimeouts();
-		for (var i = 0; i < b.length; i++)
-			alert("active: " + b[i]);
+	var b = window.activeTimeouts();
+	for (var i = 0; i < b.length; i++)
+		alert("active: " + b[i]);
 
-		var b = window.clearedTimeouts();
-		for (var i = 0; i < b.length; i++)
-			alert("cleared: " + b[i]);
+	var b = window.clearedTimeouts();
+	for (var i = 0; i < b.length; i++)
+		alert("cleared: " + b[i]);
 
-		var b = window.firedTimeouts();
-		for (var i = 0; i < b.length; i++)
-			alert("fired: " + b[i]);
-
-
+	var b = window.firedTimeouts();
+	for (var i = 0; i < b.length; i++)
+		alert("fired: " + b[i]);
 },5000)
 	</script>
 
@@ -50,10 +46,7 @@ _setTimeout(function() {
 
 	<link rel="prefetch readme" href="README">
 
-
 	<link rel="next" href="http://www.google.com">
-
-	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 
 	<title>jiagra test page</title>
 	<meta name="description" content="jiagra test page">

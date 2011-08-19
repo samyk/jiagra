@@ -6,49 +6,51 @@ by Samy Kamkar, code@samy.pl
 jiagra is a stand-alone javascript API for automatic website
 performance enhancement.
 
- * Currently features:
- *  - tracking timers/intervals to see if they've been fired or not
- *      window.checkTimeout(timeoutID)
- *      // returns 'active', 'fired', 'firedActive', 'cleared' or 'firedCleared'
- *      // active has never fired (interval or timeout)
- *      // cleared has never fired and been cleared (interval or timeout)
- *      // fired is a timeout that has fired
- *      // firedActive is an interval that has fired and still active
- *      // firedCleared is an interval that has fired and cleared
- *
- *  - get a list (array) of timers that are either active, cleared or fired
- *      window.activeTimeouts()  // active or firedActive
- *      window.clearedTimeouts() // cleared or firedCleared
- *      window.firedTimeouts()   // fired, firedActive or firedCleared
- *
- *  - clearInterval/clearTimeout now returns 'true' if cleared,
- *      'false' if already cleared/fired, or undefined if no such timer
- *      Note that a timeout that is already 'fired' won't adjust to 'cleared'
- *
- *  - document.currentScript polyfill + improvements over browser implementations
- *      Returns the script object which document.currentScript is getting called from.
- *      Unlike Opera/FF's built-in implementation, it will even work in callbacks and event handlers.
- *      It will also work on browsers which don't have a native implementation such as IE/Chrome/FF3.
- *
- *  - prerendering/prefetching polyfill (pre-caching) for all browsers
- *    even if your browser doesn't support either.
- *
- *  - John Resig's "degrading script tags", http://ejohn.org/blog/degrading-script-tags/
- *    which now applies to ALL script tags on a page!
- *      // can be globally enabled/disabled, and individually enabled/disabled
- *      <script src="path/to/script.js">
- *          code() // this gets executed after script.js loads
- *      </script>
- *      <script src="path/to/script.js" degrade="true">
- *          code() // this will run even if degradeEnabled is turned off
- *      </script>
- *      <script src="path/to/script.js" degrade="false">
- *          code() // this will NOT run
- *      </script>
+Currently features:
+  - tracking timers/intervals to see if they've been fired or not
+      window.checkTimeout(timeoutID)
+      // returns 'active', 'fired', 'firedActive', 'cleared' or 'firedCleared'
+      // active has never fired (interval or timeout)
+      // cleared has never fired and been cleared (interval or timeout)
+      // fired is a timeout that has fired
+      // firedActive is an interval that has fired and still active
+      // firedCleared is an interval that has fired and cleared
+
+  - get a list (array) of timers that are either active, cleared or fired
+      window.activeTimeouts()  // active or firedActive
+      window.clearedTimeouts() // cleared or firedCleared
+      window.firedTimeouts()   // fired, firedActive or firedCleared
+
+  - clearInterval/clearTimeout now returns 'true' if cleared,
+      'false' if already cleared/fired, or undefined if no such timer
+      Note that a timeout that is already 'fired' won't adjust to 'cleared'
+
+  - document.currentScript polyfill + improvements over browser implementations
+      Returns the script object which document.currentScript is getting called from.
+      Unlike Opera/FF's built-in implementation, it will even work in callbacks and event handlers.
+      It will also work on browsers which don't have a native implementation such as IE/Chrome/FF3.
+
+  - prerendering/prefetching polyfill (pre-caching) for all browsers
+    even if your browser doesn't support either.
+
+  - John Resig's "degrading script tags", http://ejohn.org/blog/degrading-script-tags/
+    which now applies to ALL script tags on a page!
+      // can be globally enabled/disabled, and individually enabled/disabled
+      <script src="path/to/script.js">
+          code() // this gets executed after script.js loads
+      </script>
+      <script src="path/to/script.js" degrade="true">
+          code() // this will run even if degradeEnabled is turned off
+      </script>
+      <script src="path/to/script.js" degrade="false">
+          code() // this will NOT run
+      </script>
 
 
 Currently, it contains a pseudo-polyfill for pre-rendering/pre-fetching,
-advanced timeout/interval functions and degrading script tags,
+improved document.currentScript polyfill for determining the script
+tag that's being executed, advanced timeout/interval functions and
+degrading script tags,
 
 Timeout/interval functions: these functions allow advanced
 setting, monitoring, clearing and checking of timeouts/intervals,

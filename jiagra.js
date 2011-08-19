@@ -34,10 +34,10 @@
  *      <script src="path/to/script.js">
  *          code() // this gets executed after script.js loads
  *      </script>
- *      <script src="path/to/script.js" degrade="true">
+ *      <script src="path/to/script.js" data-degrade="true">
  *          code() // this will run even if degradeEnabled is turned off
  *      </script>
- *      <script src="path/to/script.js" degrade="false">
+ *      <script src="path/to/script.js" data-degrade="false">
  *          code() // this will NOT run
  *      </script>
  *
@@ -97,7 +97,7 @@
 			// the array may change as it's dynamic so store object
 			// in case something gets inserted before it
 			var script = scripts[i];
-			var degrade = script.getAttribute ? script.getAttribute('degrade') : script.degrade;
+			var degrade = script.getAttribute('data-degrade');
 
 			// finds scripts with a URL and execute the contents inside
 			if (script.src && !script.jExecuted && (
